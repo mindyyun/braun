@@ -1,7 +1,8 @@
-#include <Adafruit_GFX.h>
-#include <Adafruit_HX8357.h>   // swap for Adafruit_ILI9488.h if needed
+#include <SPI.h>
+#include "Adafruit_GFX.h"
+#include "Adafruit_HX8357.h"   // swap for Adafruit_ILI9488.h if needed
 #include <avr/pgmspace.h>
-#include "main_tv.h"         // your generated header
+#include "main.h"         // your generated header
 
 #define TFT_CS   10
 #define TFT_DC    8
