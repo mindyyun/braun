@@ -81,14 +81,36 @@ void showMenu() {
   tft.setTextColor(0xf713);
   tft.setTextSize(4);
   tft.setCursor(25, 50);
-  tft.println("(^._.^)");       // ASCII-safe kaomoji
+  tft.println("(^._.^)");
   tft.println("How are you");
   tft.println("  feeling?");
-  tft.setCursor(90, 200);
+
+  // Pink color in RGB565: 0xFBB6 is a soft pink
+  uint16_t pinkFill   = 0xFBB6;
+  uint16_t pinkBorder = 0xF8B2; // slightly darker pink for border
+
+  // --- Happy box ---
+  tft.fillRoundRect(70, 195, 200, 50, 8, pinkFill);
+  tft.drawRoundRect(70, 195, 200, 50, 8, pinkBorder);
+  tft.setTextColor(0xf713);
+  tft.setTextSize(4);
+  tft.setCursor(90, 205);
   tft.println("happy");
-  tft.setCursor(90, 285);
+
+  // --- Sad box ---
+  tft.fillRoundRect(70, 280, 200, 50, 8, pinkFill);
+  tft.drawRoundRect(70, 280, 200, 50, 8, pinkBorder);
+  tft.setTextColor(0xf713);
+  tft.setTextSize(4);
+  tft.setCursor(90, 290);
   tft.println("sad");
-  tft.setCursor(90, 380);
+
+  // --- Bored box ---
+  tft.fillRoundRect(70, 375, 200, 50, 8, pinkFill);
+  tft.drawRoundRect(70, 375, 200, 50, 8, pinkBorder);
+  tft.setTextColor(0xf713);
+  tft.setTextSize(4);
+  tft.setCursor(90, 385);
   tft.println("bored");
 }
 
