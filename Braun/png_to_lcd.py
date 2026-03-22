@@ -1,28 +1,42 @@
 from PIL import Image
 
-img = Image.open("pics\\main.jpg").convert("RGB")
-img = img.resize((80, 60))
-
-width, height = img.size
-
-with open("include/main_tv.h", "w") as f:
-    f.write("#pragma once\n")
-    f.write("#include <avr/pgmspace.h>\n")
-    f.write(f"const uint16_t image[{width * height}] PROGMEM = {{\n")
+def image_to_arduino(image_path="pics\\tv_bw.jpg", var_name="tv_bw", max_width=80, max_height=80):
+    img = Image.open("pics\\tv_bw.jpg")
     
-    count = 0
-    total = width * height
-    for y in range(height):
-        for x in range(width):
-            r, g, b = img.getpixel((x, y))
-            rgb565 = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
-            f.write(f"0x{rgb565:04X}")
-            count += 1
-            if count < total:
-                f.write(", ")
-            if count % 16 == 0:
-                f.write("\n")
+    # Resize to fit within max dimensions while preserving aspect ratio
+    img.thumbnail((max_width, max_height), Image.LANCZOS)
+    img = img.convert("RGB")
     
-    f.write("\n};\n")
+    width, height = img.size
+    pixels = list(img.getdata())
+    
+    # Convert RGB888 to RGB565
+    def rgb565(r, g, b):
+        return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+    
+    hex_values = [f"0x{rgb565(r,g,b):04X}" for r, g, b in pixels]
+    
+    # Format into lines of 12 values each
+    lines = []
+    for i in range(0, len(hex_values), 12):
+        lines.append(", ".join(hex_values[i:i+12]))
+    
+    array_body = ",\n  ".join(lines)
+    
+    output = f"""// Image: {width}x{height} pixels
+const uint16_t {var_name}[] PROGMEM = {{
+  {array_body}
+}};
+#define {var_name.upper()}_WIDTH  {width}
+#define {var_name.upper()}_HEIGHT {height}
+"""
+    
+    print(output)
+    
+    # Also save to a .h file
+    with open(f"{var_name}.h", "w") as f:
+        f.write(output)
+    print(f"Saved to {var_name}.h")
+    print(f"Image size: {width}x{height} = {width*height} pixels = {width*height*2} bytes of flash")
 
-print(f"Done! Generated {width}x{height} = {total} pixels")
+image_to_arduino("tv_bw.png", var_name="tv_bw", max_width=320, max_height=460)
