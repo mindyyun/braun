@@ -4,17 +4,15 @@
 #define TFT_CS  10
 #define TFT_DC   9
 #define TFT_RST  8
-int button1 = 7;
-int button2 = 6;
-int button3 = 5;
-// 0=menu, 1=happy, 2=sad, 3=bored, 4=bored counter, 5=still bored, 6=yay, 7=no more sad
+int button1 = 7; // happy / yes "not bored"
+int button2 = 6; // sad
+int button3 = 5; // bored / keep clicking
+// 0 = menu, 1 = happy, 2 = sad, 3 = bored, 4 = bored counter, 5 = still bored check, 6 = yay
 int currentState = 0;
 int lastState = -1;
 int boredCount = 0;
-int boredRound = 0;
-int lastBoredCount = -1;
-int sadFaceCount = 0;
-int lastSadFaceCount = -1;
+int boredRound = 0; // tracks how many rounds of 10 they've done
+int lastBoredCount = -1; // to avoid redrawing counter every frame
 
 int prevButton1 = HIGH;
 int prevButton2 = HIGH;
@@ -29,8 +27,6 @@ void showBored();
 void showBoredCounter();
 void showStillBored();
 void showYay();
-void showNoMoreSad();
-void drawSadFace(int x, int y);
 
 void setup() {
   pinMode(button1, INPUT_PULLUP);
@@ -51,13 +47,9 @@ void loop() {
   bool pressed3 = (b3 == LOW && prevButton3 == HIGH);
 
   switch (currentState) {
-    case 0:
+    case 0: // Menu
       if      (pressed1) { currentState = 1; }
-      else if (pressed2) {
-        sadFaceCount = 0;
-        lastSadFaceCount = -1;
-        currentState = 2;
-      }
+      else if (pressed2) { currentState = 2; }
       else if (pressed3) {
         boredCount = 0;
         boredRound = 0;
@@ -66,23 +58,12 @@ void loop() {
       }
       break;
 
-    case 1:
+    case 1: // Happy
+    case 2: // Sad
       if (pressed1 || pressed2 || pressed3) currentState = 0;
       break;
 
-    case 2: // Sad — keep clicking btn2 to fill with sad faces
-      if (pressed2) {
-        sadFaceCount++;
-        lastSadFaceCount = -1; // force redraw
-        if (sadFaceCount >= 10) {
-          currentState = 7;
-        }
-      } else if (pressed1 || pressed3) {
-        currentState = 0;
-      }
-      break;
-
-    case 3:
+    case 3: // Bored landing screen
       if (pressed3) {
         boredCount = 0;
         lastBoredCount = -1;
@@ -92,37 +73,35 @@ void loop() {
       }
       break;
 
-    case 4:
+    case 4: // Bored counter (clicking up to 10)
       if (pressed3) {
         boredCount++;
-        lastBoredCount = -1;
+        lastBoredCount = -1; // force redraw of counter
         if (boredCount >= 10) {
           boredRound++;
-          currentState = 5;
+          currentState = 5; // ask if still bored
         }
       }
       break;
 
-    case 5:
+    case 5: // Still bored check
       if (pressed3) {
+        // Yes, still bored — do another 10
         boredCount = 0;
         lastBoredCount = -1;
         currentState = 4;
       } else if (pressed1) {
+        // No, not bored anymore!
         currentState = 6;
       }
       break;
 
-    case 6:
-      if (pressed1 || pressed2 || pressed3) currentState = 0;
-      break;
-
-    case 7: // No more sad!
+    case 6: // Yay!
       if (pressed1 || pressed2 || pressed3) currentState = 0;
       break;
   }
 
-  // Full redraw on state change
+  // Redraw full screen only on state change
   if (currentState != lastState) {
     switch (currentState) {
       case 0: showMenu();        break;
@@ -132,29 +111,17 @@ void loop() {
       case 4: showBoredCounter(); break;
       case 5: showStillBored();  break;
       case 6: showYay();         break;
-      case 7: showNoMoreSad();   break;
     }
     lastState = currentState;
   }
 
-  // Incremental sad face drawing — adds one face per press
-  if (currentState == 2 && sadFaceCount != lastSadFaceCount && sadFaceCount > 0) {
-    // Layout: 2 columns x 5 rows, faces ~60x60px each, starting at y=180
-    // Positions for up to 10 faces
-    int faceIndex = sadFaceCount - 1;
-    int col = faceIndex % 2;
-    int row = faceIndex / 2;
-    int x = 60 + col * 160;
-    int y = 180 + row * 60;
-    drawSadFace(x, y);
-    lastSadFaceCount = sadFaceCount;
-  }
-
-  // Bored counter partial redraw
+  // In counter state, redraw only the count number when it changes
   if (currentState == 4 && boredCount != lastBoredCount) {
+    // Erase old number area and redraw count
     tft.fillRect(0, 220, 320, 80, 0x8db1);
     tft.setTextColor(0xf713);
     tft.setTextSize(6);
+    // Center the number
     int digitWidth = (boredCount >= 10) ? 2 : 1;
     int xPos = (320 - digitWidth * 36) / 2;
     tft.setCursor(xPos, 230);
@@ -168,51 +135,44 @@ void loop() {
   delay(20);
 }
 
-// Draws a small TT_T face at the given position
-void drawSadFace(int x, int y) {
-  tft.setTextColor(0xf713);
-  tft.setTextSize(2);
-  tft.setCursor(x, y);
-  tft.println("(T_T)");
-}
-
 void showMenu() {
   tft.fillScreen(0x7bec);
   tft.setTextColor(0xf713);
   tft.setTextSize(4);
   tft.setCursor(50, 50);
   tft.println("(^._.^)");
-  tft.setCursor(50, 80);
+  tft.setCursor(25, 80);
   tft.println("How are you");
   tft.println("  feeling?");
 
+  uint16_t pinkFill   = 0xFBB6;
   uint16_t pinkBorder = 0xF8B2;
 
-  tft.fillRoundRect(70, 195, 200, 50, 8, 0xa632);
-  tft.drawRoundRect(70, 195, 200, 50, 8, pinkBorder);
+  tft.fillRoundRect(25, 195, 200, 50, 8, 0xa632);
+  tft.drawRoundRect(25, 195, 200, 50, 8, pinkBorder);
   tft.setTextColor(0xf713);
   tft.setTextSize(4);
-  tft.setCursor(90, 205);
+  tft.setCursor(60, 205);
   tft.println("happy");
 
-  tft.fillRoundRect(70, 280, 200, 50, 8, 0xa632);
-  tft.drawRoundRect(70, 280, 200, 50, 8, pinkBorder);
+  tft.fillRoundRect(25, 280, 200, 50, 8, 0xa632);
+  tft.drawRoundRect(25, 280, 200, 50, 8, pinkBorder);
   tft.setTextColor(0xf713);
   tft.setTextSize(4);
-  tft.setCursor(90, 290);
+  tft.setCursor(60, 290);
   tft.println("sad");
 
-  tft.fillRoundRect(70, 375, 200, 50, 8, 0xa632);
-  tft.drawRoundRect(70, 375, 200, 50, 8, pinkBorder);
+  tft.fillRoundRect(25, 375, 200, 50, 8, 0xa632);
+  tft.drawRoundRect(25, 375, 200, 50, 8, pinkBorder);
   tft.setTextColor(0xf713);
   tft.setTextSize(4);
-  tft.setCursor(90, 385);
+  tft.setCursor(60, 385);
   tft.println("bored");
 }
 
 void showHappy() {
-  tft.fillScreen(0xf77c);
-  tft.setTextColor(0xf713);
+  tft.fillScreen(0xcd71);
+  tft.setTextColor(0xf77c);
   tft.setTextSize(4);
   tft.setCursor(25, 50);
   tft.println("(^ v ^)");
@@ -221,33 +181,17 @@ void showHappy() {
 }
 
 void showSad() {
-  tft.fillScreen(0x48e3);
-  tft.setTextColor(0xf713);
+  tft.fillScreen(0x95fd);
+  tft.setTextColor(0xf77c);
   tft.setTextSize(4);
   tft.setCursor(25, 50);
   tft.println("(T_T)");
   tft.println("Cheer up!");
-  tft.setTextSize(2);
-  tft.setCursor(25, 155);
-  tft.println("(keep pressing 2...)");
-}
-
-void showNoMoreSad() {
-  tft.fillScreen(0x48e3);
-  tft.setTextColor(0xf713);
-  tft.setTextSize(3);
-  tft.setCursor(10, 60);
-  tft.println("aww, too bad");
-  tft.println("no more sad");
-  tft.println("allowed!");
-  tft.setTextSize(2);
-  tft.setCursor(20, 280);
-  tft.println("press any button");
 }
 
 void showBored() {
-  tft.fillScreen(0x5a1a);
-  tft.setTextColor(0xf713);
+  tft.fillScreen(0x731d);
+  tft.setTextColor(0xf77c);
   tft.setTextSize(4);
   tft.setCursor(25, 50);
   tft.println("-_-");
@@ -260,8 +204,8 @@ void showBored() {
 }
 
 void showBoredCounter() {
-  tft.fillScreen(0xf770);
-  tft.setTextColor(0xf713);
+  tft.fillScreen(0x731d);
+  tft.setTextColor(0xf77c);
   tft.setTextSize(3);
   tft.setCursor(10, 50);
   tft.println("Keep clicking!");
@@ -273,11 +217,12 @@ void showBoredCounter() {
     tft.print("Round ");
     tft.println(boredRound + 1);
   }
+  // Count display area is drawn in loop() to update smoothly
 }
 
 void showStillBored() {
-  tft.fillScreen(0xf770);
-  tft.setTextColor(0xf713);
+  tft.fillScreen(0x731d);
+  tft.setTextColor(0xf77c);
   tft.setTextSize(3);
   tft.setCursor(20, 60);
   tft.println("Still bored?");
